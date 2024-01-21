@@ -1,0 +1,8 @@
+name: "just a test"
+on: [push,workflow_dispatch]
+jobs:
+  job1:
+    runs-on: ubuntu-latest
+    steps:
+        - run: echo "hello1"
+        - run: echo "havvv"
