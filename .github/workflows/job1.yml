@@ -2,9 +2,9 @@ name: "just a test"
 on: [push,workflow_dispatch]
 jobs:
   job1:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     steps:
         - uses: actions/checkout@v4
-        - run:  ls -lht
-        - run: echo "hello1"
-        - run: echo "havvv"
+        - run:  make -f Makefile.release release  
+        - run: ls -lht build/
+        - run: ls -lht release/
