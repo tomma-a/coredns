@@ -8,6 +8,7 @@ jobs:
         - run: rm -rf build && mkdir build 
         - run: mkdir -p build/windows/amd64 && make coredns BINARY=build/windows/amd64/coredns.exe SYSTEM="GOOS=windows GOARCH=amd64" CHECKS="" BUILDOPTS=""
         - run: rm -rf release && mkdir release
+        - run: git diff
         - run: tar -zcf release/coredns_windows_amd64.tgz -C build/windows/amd64 coredns.exe
         - uses: actions/upload-artifact@v4
           with:
