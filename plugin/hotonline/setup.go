@@ -2,19 +2,27 @@ package hotonline
 
 import (
 	"context"
-	//"fmt"
+	"fmt"
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/request"
 	"github.com/gin-gonic/gin"
 	"github.com/miekg/dns"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"net"
 	"io"
 	"github.com/tidwall/gjson"
 	"net/http"
+	"math/rand"
 	"strings"
+	"crypto/tls"
+	"errors"
+	"time"
 )
+
+var log = clog.NewWithPlugin("hotonline")
+
 var Default_github_ips =[...]string{"192.30.252.0/22",
 "185.199.108.0/22",
 "140.82.112.0/20",
@@ -54,11 +62,74 @@ func update_github_ips() {
 					github_ips=append(github_ips,i.String())
                         }
 }
-
 }
+
+func get_ips(cidr string) ([]string, error) {
+	ip, ipnet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return nil, err
+	}
+
+	var ips []string
+	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
+		ips = append(ips, ip.String())
+	}
+	// remove network address and broadcast address
+	return ips, nil
+}
+func inc(ip net.IP) {
+	for j := len(ip) - 1; j >= 0; j-- {
+		ip[j]++
+		if ip[j] > 0 {
+			break
+		}
+	}
+}
+
 func update_github_ip_list() {
 	github_ip_list=nil
+	if github_ips==nil || len(github_ips)<2 {
+		github_ips=Default_github_ips[:]
+	}
+	for _,item :=range github_ips {
+		if strings.Index(item,":")>=0 {
+			continue // skip ipv6
+		}
+		ips, err:=get_ips(item)
+		if err!=nil {
+			continue
+		}
+		github_ip_list=append(github_ip_list,ips...)
+	}
 	
+}
+func test_github_connection(ip string) bool {
+  tr:=&http.Transport{TLSClientConfig : &tls.Config{InsecureSkipVerify: true}}
+  client:=&http.Client{Transport:tr,Timeout: time.Second*6}
+  //Declare and initialize slice1
+  req,_ :=http.NewRequest("GET","https://"+ip,nil)
+  req.Header.Set("Host","github.com")
+  req.Header.Set("user-agent","Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36")
+  resp, err:=client.Do(req)
+  if err==nil{
+	defer resp.Body.Close()
+	return true
+  }
+  fmt.Println(err)
+
+  return false
+}
+func get_workable_github_ip()  (string, error) {
+    ips_num :=len(github_ip_list)
+	for i :=0;i <60; i++ {
+		ip:=github_ip_list[rand.Int31n(int32(ips_num))]
+		fmt.Printf("Trying ... %v\n",ip)
+		ret:=test_github_connection(ip)
+		if ret {
+			return ip,nil
+		}
+	}
+	return "", errors.New("Not workable ip")
 }
 func init() { plugin.Register("hotonline", setup) }
 func setup(c *caddy.Controller) error {
@@ -70,14 +141,25 @@ func setup(c *caddy.Controller) error {
 	}
 	port := args[0]
 	h := HotOnline{Pairs: make(map[string]string)}
+	cc :=periodicHostsUpdate(&h)
+	c.OnStartup( func() error {
 	go func() {
 		gin.SetMode(gin.ReleaseMode)
+		h.sync(true)
+		//fmt.Println(github_ip_list)
 		r := gin.Default()
 		r.GET("/", h.getAll)
 		r.GET("/add", h.add)
 		r.GET("/del", h.del)
 		r.Run(":" + port)
 	}()
+	return nil
+	})
+	c.OnShutdown(func() error {
+		close(cc)
+		return nil
+	})
+	
 	// Add the Plugin to CoreDNS, so Servers can use it in their plugin chain.
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		h.Next = next
@@ -86,7 +168,45 @@ func setup(c *caddy.Controller) error {
 
 	return nil
 }
+func periodicHostsUpdate(h *HotOnline) chan bool {
+	parseChan := make(chan bool)
 
+	
+	go func() {
+		ticker := time.NewTicker(time.Minute*6)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-parseChan:
+				return
+			case <-ticker.C:
+				h.sync(false)
+			}
+		}
+	}()
+	return parseChan
+}
+
+func (hot HotOnline) sync(flag bool) {
+		fmt.Println("new sync")
+	    if val,ok :=hot.Pairs["github.com"]; ok {
+			ok=test_github_connection(val)
+			if ok {
+				return
+			}
+		}
+		if flag {
+ 		update_github_ips()
+		update_github_ip_list()
+		}
+		wip,err:=get_workable_github_ip()
+		if err==nil {
+			hot.Pairs["github.com"]=wip
+			hot.Pairs["github.githubassets.com"]=wip
+			fmt.Printf("Get workable ip %v\n",wip)
+
+		}
+}
 func (hot HotOnline) add(c *gin.Context) {
 	domain := c.Query("d")
 	ip := c.Query("ip")
