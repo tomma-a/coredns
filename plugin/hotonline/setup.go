@@ -10,15 +10,56 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/miekg/dns"
 	"net"
+	"io"
+	"github.com/tidwall/gjson"
 	"net/http"
 	"strings"
 )
-
+var Default_github_ips =[...]string{"192.30.252.0/22",
+"185.199.108.0/22",
+"140.82.112.0/20",
+"143.55.64.0/20",
+"2a0a:a440::/29",
+"20.201.28.151/32",
+"20.205.243.166/32",
+"20.87.245.0/32",
+"20.248.137.48/32",
+"20.207.73.82/32",
+"20.27.177.113/32",
+"20.200.245.247/32",
+"20.175.192.147/32",
+"20.233.83.145/32",
+"20.29.134.23/32"}
+var github_ip_list []string
+var github_websites=[...]string{"github.com",
+"github.dev",
+"github.io",
+"githubassets.com",
+"githubusercontent.com"}
+var github_ips []string
+const git_meta string= "https://api.github.com/meta"
 type HotOnline struct {
 	Next  plugin.Handler
 	Pairs map[string]string
 }
 
+func update_github_ips() {
+	github_ips=nil
+	resp, err := http.Get("https://api.github.com/meta")
+	if err == nil && resp.StatusCode==200 {
+                defer resp.Body.Close()
+                body,_:=io.ReadAll(resp.Body)
+                webs:=gjson.Get(string(body),"web")
+                for _,i :=range webs.Array() {
+					github_ips=append(github_ips,i.String())
+                        }
+}
+
+}
+func update_github_ip_list() {
+	github_ip_list=nil
+	
+}
 func init() { plugin.Register("hotonline", setup) }
 func setup(c *caddy.Controller) error {
 
