@@ -188,7 +188,7 @@ func setup(c *caddy.Controller) error {
 	if len(args) != 1 {
 		return c.ArgErr()
 	}
-	done_counter=make(map[string]bool,500)
+	done=make(map[string]bool,500)
 	port := args[0]
 	h := HotOnline{Pairs: make(map[string]string), Reload: time.Minute * 5, TTL: 120}
 	for c.NextBlock() {
