@@ -148,9 +148,9 @@ func test_github_connection(ip string, domain string) bool {
 		defer resp.Body.Close()
 		return true
 	}
-	/*if strings.Index(err.Error(),"wsarecv")>0 {
+	if strings.Index(err.Error(),"wsarecv")>0 {
 		return true   // tls sni problem
-	  }*/
+	  }
 	fmt.Println(err)
 
 	return false
