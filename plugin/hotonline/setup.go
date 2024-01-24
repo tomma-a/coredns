@@ -24,7 +24,8 @@ import (
 )
 
 var log = clog.NewWithPlugin("hotonline")
-
+var done map[string]bool
+var done_counter=0
 var Default_github_ips = [...]string{"192.30.252.0/22",
 	"185.199.108.0/22",
 	"140.82.112.0/20",
@@ -158,7 +159,7 @@ func test_github_connection(ip string, domain string) bool {
 }
 func get_workable_github_ip(domain string) (string, error) {
 	ips_num := len(github_ip_list)
-	done := make(map[string]bool, 50)
+	
 	for i := 0; i < 100; {
 		ip := github_ip_list[rand.Int31n(int32(ips_num))]
 		if domain == "github.githubassets.com" {
@@ -187,6 +188,7 @@ func setup(c *caddy.Controller) error {
 	if len(args) != 1 {
 		return c.ArgErr()
 	}
+	done_counter=make(map[string]bool,500)
 	port := args[0]
 	h := HotOnline{Pairs: make(map[string]string), Reload: time.Minute * 5, TTL: 120}
 	for c.NextBlock() {
@@ -289,6 +291,11 @@ func (hot HotOnline) sync(flag bool) {
 	if flag {
 		update_github_ips()
 		update_github_ip_list()
+	}
+	done_counter++
+	if done_counter>30{
+		done_counter=0
+		done=make(map[string]bool,500)
 	}
 	wip, err := get_workable_github_ip("github.com")
 	if err == nil {
