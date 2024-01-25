@@ -1,0 +1,8 @@
+name: "just a test"
+on: 
+  workflow_dispatch:
+jobs:
+  job1:
+    runs-on: ubuntu-latest
+    steps:
+        - run: go env
