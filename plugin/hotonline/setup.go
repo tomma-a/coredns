@@ -26,7 +26,7 @@ import (
 var log = clog.NewWithPlugin("hotonline")
 var done map[string]bool
 var done_counter=0
-var ipv4_skip_upper=255
+var ipv4_skip_upper byte=255
 var Default_github_ips = [...]string{"192.30.252.0/22",
 	"185.199.108.0/22",
 	"140.82.112.0/20",
@@ -236,7 +236,7 @@ func setup(c *caddy.Controller) error {
 			if err != nil {
 				return c.Errf("%v", err)
 			}
-			ipv4_skip_upper = i
+			ipv4_skip_upper = byte(i)
 		case "prefix":
 			remaining := c.RemainingArgs()
 			if len(remaining) != 1 {
