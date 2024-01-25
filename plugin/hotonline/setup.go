@@ -26,6 +26,7 @@ import (
 var log = clog.NewWithPlugin("hotonline")
 var done map[string]bool
 var done_counter=0
+var ipv4_skip_upper=255
 var Default_github_ips = [...]string{"192.30.252.0/22",
 	"185.199.108.0/22",
 	"140.82.112.0/20",
@@ -83,7 +84,7 @@ func get_ips(cidr string) ([]string, error) {
 
 	var ips []string
 	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
-		if ip[3]>80 {
+		if ip[3]>=ipv4_skip_upper {
 			continue  //skip large ip address range
 		}
 		ips = append(ips, ip.String())
@@ -226,6 +227,16 @@ func setup(c *caddy.Controller) error {
 				return c.Errf("%v", err)
 			}
 			ip_upper = i
+		case "ipv4_skip_upper":
+			remaining := c.RemainingArgs()
+			if len(remaining) != 1 {
+				return c.Errf("ipv4_skip_upper need a int")
+			}
+			i, err := strconv.Atoi(remaining[0])
+			if err != nil {
+				return c.Errf("%v", err)
+			}
+			ipv4_skip_upper = i
 		case "prefix":
 			remaining := c.RemainingArgs()
 			if len(remaining) != 1 {
