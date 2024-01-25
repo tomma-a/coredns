@@ -83,6 +83,9 @@ func get_ips(cidr string) ([]string, error) {
 
 	var ips []string
 	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
+		if ip[3]>80 {
+			continue  //skip large ip address range
+		}
 		ips = append(ips, ip.String())
 	}
 	if strings.HasPrefix(cidr, github_assets_ip_prefix) {
